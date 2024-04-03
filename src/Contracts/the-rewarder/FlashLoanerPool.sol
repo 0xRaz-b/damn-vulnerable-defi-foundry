@@ -37,3 +37,12 @@ contract FlashLoanerPool is ReentrancyGuard {
         }
     }
 }
+/*
+Get a flashLoan of liquidityToken
+
+call deposit to mint some accToken and it gonna check if we have liquidityToken which is provided from the flashLoan
+
+call DistributedRewards which will get you reward token based to your accToken 
+
+Give back the liquidityToken 
+*/
